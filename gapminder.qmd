@@ -1,0 +1,195 @@
+---
+title: "Gapminder|Life Expectancies 2007"
+format: dashboard
+theme: sandstone
+---
+
+
+```{r}
+pacman::p_load(tidyverse,
+               plotly,
+               reactable,
+               bslib, 
+               bsicons,
+               shiny,
+               gapminder,
+               rnaturalearth,
+               countrycode,
+               plotly,
+               htmltools,
+               reactable)
+```
+
+# HOME
+
+## Row 1
+
+```{r}
+gap_07 <- gapminder %>% 
+  filter(year == 2007) 
+
+highest_exp <- 
+  gap_07 %>% 
+  arrange(desc(lifeExp)) %>% 
+  head(1) %>% 
+  pull(lifeExp) %>% 
+  round(1)
+
+highest_exp_ctry <- gap_07 %>% 
+  arrange(desc(lifeExp)) %>% 
+  head(1) %>% 
+  pull(country) 
+
+```
+
+```{r}
+lowest_exp <- 
+  gap_07 %>% 
+  arrange(lifeExp) %>% 
+  head(1) %>% 
+  pull(lifeExp) %>% 
+  round(1)
+
+lowest_ctry <-
+  gap_07 %>% 
+  arrange(country) %>% 
+  head(1) %>% 
+  pull(country)
+
+```
+
+```{r}
+average <- 
+  gap_07 %>% 
+  summarise(avg = sum(lifeExp*pop)/sum(pop)) %>% 
+  round(1)
+```
+
+
+```{r}
+value_box(
+  title = "Highest Life Expectancy",
+  value = highest_exp,
+  showcase = bsicons::bs_icon("hourglass"),
+  theme = "bg-indigo",
+  p(paste0("(", highest_exp_ctry, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Lowest Life Expectancy",
+  value = lowest_exp,
+  showcase = bsicons::bs_icon("hourglass-bottom"),
+  theme = "bg-blue",
+  
+  p(paste0("(", lowest_ctry, ")"))
+)
+```
+
+```{r}
+value_box(
+  title = "Average Life Expectancy",
+  value = average,
+  showcase = bsicons::bs_icon("heart-fill"),
+  theme = "bg-success"
+)
+```
+
+
+```{r}
+world <- ne_countries()
+
+map_gam_07 <- 
+  gap_07 %>% 
+  mutate(iso = countrycode(country, 
+                           "country.name", 
+                           "iso3c"))  
+map <- left_join(world, map_gam_07,
+            by = c("adm0_a3"= "iso")) %>% 
+  mutate(tooltip_label = paste(country,
+                               round(lifeExp , 1),
+                               sep = ": ")) %>% 
+  ggplot(aes(fill = lifeExp,text = tooltip_label)) + 
+  geom_sf() +
+  theme_void() +
+  theme(legend.position = "none")
+
+gap_map_plotly <- ggplotly(map, tooltip = "text")
+
+  
+```
+
+
+
+## Row 2
+
+### {width=70%}
+
+```{r title = "Map of Countries by Life Expectancy 2007"}
+gap_map_plotly
+```
+
+```{r}
+top20 <- gap_07 %>% 
+  arrange(desc(lifeExp)) %>% 
+  head(20) %>% 
+  mutate(tooltip_label = paste(country,
+                               round(lifeExp , 1),
+                               sep = ": "))
+
+top20_plot <-top20 %>% 
+  ggplot(aes(x= lifeExp, 
+             y = reorder(country, lifeExp),
+             fill = lifeExp,
+             text = tooltip_label)) +
+  geom_col() +
+  geom_text(aes(label = round(lifeExp, 1)),
+            nudge_x = -10,
+            color = "white") +
+  labs(x = "Life Expectancy",
+       y = "Countries") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+top20_plotly <- ggplotly(top20_plot, tooltip = "text")
+
+```
+
+
+###
+```{r title = "Top 20 countries with the highest life expectancy"}
+top20_plotly
+```
+
+
+
+# DOWNLOAD DATA
+
+The data used in the dashboard is shown below and can be downloaded as a CSV file in the link below.
+
+
+```{r}
+htmltools::browsable(
+  tagList(
+    reactable(
+      gapminder,
+      elementId = "gapminder-table",
+      searchable = T,
+      filterable = T),
+      
+      tags$button("Download as CSV", onclick = "Reactable.downloadDataCSV('gapminder-table')")
+    )
+  )
+```
+
+
+# ABOUT
+This data comes from the R `gapminder` package, sourced from the Gapminder Foundation.
+
+Gapminder Foundation is a non-profit venture registered in Stockholm, Sweden, that promotes sustainable global development and achievement of the United Nations Millennium Development Goals by increased use and understanding of statistics and other information about social, economic, and environmental development at local, national, and global levels.
+
+Hans Rosling's video:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/hVimVzgtD6w?si=Ojni3o_J32m2nacp" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
